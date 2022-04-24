@@ -3,8 +3,8 @@
 ## Introduction
 
 The objective of this tutorial is to extend basic L3 forwarding with a
-scaled-down version of In-Band Network Telemetry (INT), which we call
-Multi-Hop Route Inspection (MRI).
+scaled-down(缩小比例的) version of In-Band Network Telemetry (INT), which we call
+Multi-Hop Route Inspection(检查) (MRI).
 
 MRI allows users to track the path and the length of queues that every
 packet travels through.  To support this functionality, you will need
@@ -23,7 +23,7 @@ only need to implement the data plane logic of your P4 program.
 
 The directory with this README also contains a skeleton P4 program,
 `mri.p4`, which initially implements L3 forwarding. Your job (in the
-next step) will be to extend it to properly prepend the MRI custom
+next step) will be to extend it to properly prepend(预先考虑) the MRI custom
 headers.
 
 Before that, let's compile the incomplete `mri.p4` and bring up a
@@ -37,7 +37,7 @@ switch in Mininet to test its behavior.
    * compile `mri.p4`, and
    * start a Mininet instance with three switches (`s1`, `s2`, `s3`) configured
      in a triangle. There are 5 hosts. `h1` and `h11` are connected to `s1`.
-     `h2` and `h22` are connected to `s2` and `h3` is connected to `s3`.     
+     `h2` and `h22` are connected to `s2` and `h3` is connected to `s3`.
    * The hosts are assigned IPs of `10.0.1.1`, `10.0.2.2`, etc
      (`10.0.<Switchid>.<hostID>`).
    * The control plane programs the P4 tables in each switch based on
@@ -46,7 +46,7 @@ switch in Mininet to test its behavior.
 2. We want to send a low rate traffic from `h1` to `h2` and a high
    rate iperf traffic from `h11` to `h22`.  The link between `s1` and
    `s2` is common between the flows and is a bottleneck because we
-   reduced its bandwidth to 512kbps in topology.json.  Therefore, if we
+   reduced its bandwidth to **512kbps** in topology.json.  Therefore, if we
    capture packets at `h2`, we should see high queue size for that
    link.
 
@@ -54,6 +54,7 @@ switch in Mininet to test its behavior.
 
 3. You should now see a Mininet command prompt. Open four terminals
    for `h1`, `h11`, `h2`, `h22`, respectively:
+   
    ```bash
    mininet> xterm h1 h11 h2 h22
    ```
@@ -86,8 +87,8 @@ the code in `mri.p4` to implement the MRI logic to record the path.
 ### A note about the control plane
 
 P4 programs define a packet-processing pipeline, but the rules
-governing packet processing are inserted into the pipeline by the
-control plane.  When a rule matches a packet, its action is invoked
+governing(控制) packet processing are inserted into the pipeline by the
+control plane.  When a rule matches a packet, its action is invoked(唤醒)
 with parameters supplied by the control plane as part of the rule.
 
 In this exercise, the control plane logic has already been
@@ -103,41 +104,41 @@ logic replaced by `TODO` comments.  These should guide your
 implementation---replace each `TODO` with logic implementing the
 missing piece.
 
-MRI will require two custom headers. The first header, `mri_t`,
-contains a single field `count`, which indicates the number of switch
-IDs that follow. The second header, `switch_t`, contains switch ID and
-Queue depth fields of each switch hop the packet goes through.
+MRI will require two custom(定制的) headers. **The first header**, `mri_t`,
+contains a single field `count`, which indicates **the number of switch**
+**IDs** that follow. **The second header**, `switch_t`, contains **switch ID** and
+**Queue depth** fields of each switch hop the packet goes through.
 
 One of the biggest challenges in implementing MRI is handling the
-recursive logic for parsing these two headers. We will use a
+recursive(递归的) logic for parsing these two headers. We will use a
 `parser_metadata` field, `remaining`, to keep track of how many
 `switch_t` headers we need to parse.  In the `parse_mri` state, this
 field should be set to `hdr.mri.count`.  In the `parse_swtrace` state,
 this field should be decremented. The `parse_swtrace` state will
-transition to itself until `remaining` is 0.
+transition(转向) to itself until `remaining` is 0.
 
 The MRI custom headers will be carried inside an IP Options
-header. The IP Options header contains a field, `option`, which
+header. The **IP Options header**(选项字段 长度可变) contains a field, `option`, which
 indicates the type of the option. We will use a special type 31 to
 indicate the presence of the MRI headers.
 
 Beyond the parser logic, you will add a table in egress, `swtrace` to
-store the switch ID and queue depth, and actions that increment the
+store the switch ID and queue depth, and actions that increment(定量增长) the
 `count` field, and append a `switch_t` header.
 
 A complete `mri.p4` will contain the following components:
 
 1. Header type definitions for Ethernet (`ethernet_t`), IPv4 (`ipv4_t`),
-   IP Options (`ipv4_option_t`), MRI (`mri_t`), and Switch (`switch_t`). 
+   IP Options (`ipv4_option_t`), MRI (`mri_t`), and Switch (`switch_t`).
 2. Parsers for Ethernet, IPv4, IP Options, MRI, and Switch that will
-populate `ethernet_t`, `ipv4_t`, `ipv4_option_t`, `mri_t`, and
+populate(给...增添数据) `ethernet_t`, `ipv4_t`, `ipv4_option_t`, `mri_t`, and
 `switch_t`.
 3. An action to drop a packet, using `mark_to_drop()`.
 4. An action (called `ipv4_forward`), which will:
 	1. Set the egress port for the next hop.
 	2. Update the ethernet destination address with the address of
-	the next hop.	
-	3. Update the ethernet source address with the address of the switch. 
+	the next hop.
+	3. Update the ethernet source address with the address of the switch.
 	4. Decrement the TTL.
 5. An ingress control that:
     1. Defines a table that will read an IPv4 destination address, and
@@ -220,7 +221,7 @@ There are several ways that problems might manifest:
 
 3. `mri.p4` compiles, and the control plane rules are installed, but
    the switch does not process packets in the desired way. The
-   `/tmp/p4s.<switch-name>.log` files contain trace messages
+   `logs/sX.log` files contain trace messages
    describing how each switch processes each packet. The output is
    detailed and can help pinpoint logic errors in your implementation.
    The `build/<switch-name>-<interface-name>.pcap` also contains the

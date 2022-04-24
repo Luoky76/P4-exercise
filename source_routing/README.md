@@ -10,11 +10,11 @@ Ethernet header and select a special etherType to indicate that.  Each
 switch pops an item from the stack and forwards the packet according
 to the specified port number.
 
-Your switch must parse the source routing stack. Each item has a bos
-(bottom of stack) bit and a port number. The bos bit is 1 only for the
+Your switch must parse the source routing stack. Each item has a **bos**
+**(bottom of stack)** bit and a port number. The bos bit is 1 only for the
 last entry of stack.  Then at ingress, it should pop an entry from the
-stack and set the egress port accordingly. The last hop may also
-revert back the etherType to `TYPE_IPV4`.
+stack and set the egress port accordingly. **The last hop may also**
+**revert(恢复) back the etherType to `TYPE_IPV4`.**
 
 > **Spoiler alert:** There is a reference solution in the `solution`
 > sub-directory. Feel free to compare your implementation to the
@@ -44,11 +44,13 @@ bring up a network in Mininet to test its behavior.
 
 2. You should now see a Mininet command prompt. Open two terminals for
    `h1` and `h2`, respectively:
+   
    ```bash
    mininet> xterm h1 h2
    ```
 3. Each host includes a small Python-based messaging client and
    server. In `h2`'s xterm, start the server:
+   
    ```bash
    ./receive.py
    ```
@@ -60,13 +62,13 @@ bring up a network in Mininet to test its behavior.
 5. Type a list of port numbers. say `2 3 2 2 1`.  This should send the
    packet through `h1`, `s1`, `s2`, `s3`, `s1`, `s2`, and
    `h2`. However, `h2` will not receive the message.
-   
+
 6. Type `q` to exit send.py and type `exit` to leave each xterm and
    the Mininet command line.
 
 The message was not received because each switch is programmed with
 `source_routing.p4`, which drops all packets on arrival.  You can
-verify this by looking at `/tmp/p4s.s1.log`.  Your job is to extend
+verify this by looking at `logs/s1.log`.  Your job is to extend
 the P4 code so packets are delivered to their destination.
 
 ## Step 2: Implement source routing
@@ -80,11 +82,11 @@ A complete `source_routing.p4` will contain the following components:
 
 1. Header type definitions for Ethernet (`ethernet_t`) and IPv4
    (`ipv4_t`) and Source Route (`srcRoute_t`).
-2. **TODO:** Parsers for Ethernet and Source Route that populate
+2. **TODO:** Parsers for Ethernet and Source Route that populate(为...输入数据)
    `ethernet` and `srcRoutes` fields.
 3. An action to drop a packet, using `mark_to_drop()`.
 4. **TODO:** An action (called `srcRoute_nhop`), which will:
-	1. Set the egress port for the next hop. 
+	1. Set the egress port for the next hop.
 	2. remove the first entry of srcRoutes
 5. A control with an `apply` block that:
     1. checks the existence of source routes.
@@ -123,7 +125,7 @@ There are several ways that problems might manifest:
    Do you have another instance of mininet running? Did the previous
    run of mininet crash?  if yes, check "Cleaning up Mininet" bellow.
 3. `source_routing.p4` compiles but the switch does not process
-   packets in the desired way. The `/tmp/p4s.<switch-name>.log`
+   packets in the desired way. The `logs/sX.log`
    files contain trace messages describing how each switch processes
    each packet. The output is detailed and can help pinpoint logic
    errors in your implementation.  The

@@ -2,8 +2,8 @@
 
 ## Introduction
 
-The objective of this tutorial is to extend basic L3 forwarding with
-an implementation of Quality of Service (QOS) using Differentiated Services.
+The objective(目标) of this tutorial is to extend basic L3 forwarding with
+an implementation of **Quality of Service** (QOS) using Differentiated Services.
 
 Diffserv is simple and scalable. It classifies and manages network traffic and provides QOS on modern IP networks.
 
@@ -43,7 +43,7 @@ capture packets at `h2`, we should see the right diffserv value.
 ![Setup](setup.png)
 
 3. You should now see a Mininet command prompt. Open two terminals
-for `h1` and `h2`, respectively:
+   for `h1` and `h2`, respectively:
    ```bash
    mininet> xterm h1 h2
    ```
@@ -52,7 +52,7 @@ for `h1` and `h2`, respectively:
    ./receive.py
    ```
 5. In `h1`'s XTerm, send one packet per second to `h2` using send.py
-say for 30 seconds.
+   say for 30 seconds.
    To send UDP:
    ```bash
    ./send.py --p=UDP --des=10.0.2.2 --m="P4 is cool" --dur=30
@@ -78,7 +78,7 @@ missing piece.
 First we have to change the ipv4_t header by splitting the TOS field
 into DiffServ and ECN fields.  Remember to update the checksum block
 accordingly.  Then, in the egress control block we must compare the
-protocol in IP header with IP protocols. Based on the traffic classes 
+protocol in IP header with IP protocols. Based on the traffic classes
 and priority, the `diffserv` flag will be set.
 
 A complete `qos.p4` will contain the following components:
@@ -96,13 +96,13 @@ A complete `qos.p4` will contain the following components:
 6. A deparser that selects the order in which headers are inserted into the outgoing
    packet.
 7. A `package` instantiation supplied with the parser, control,
-  checksum verification and recomputation and deparser.
+    checksum verification and recomputation and deparser.
 
 ## Step 3: Run your solution
 
 Follow the instructions from Step 1. This time, when your message from
 `h1` is delivered to `h2`, you should see `tos` values change from 0x1
-to  0xb9 for UDP and 0xb1 for TCP. It depends upon the action you choose 
+to  0xb9 for UDP and 0xb1 for TCP. It depends upon the action you choose
 in Ingress processing.
 
 To easily track the `tos` values you may want to redirect the output
@@ -148,7 +148,7 @@ There are several ways that problems might manifest:
    implementation.
 3. `qos.p4` compiles, and the control plane rules are installed, but
    the switch does not process packets in the desired way.  The
-   `/tmp/p4s.<switch-name>.log` files contain trace messages
+   `logs/sX.log` files contain trace messages
    describing how each switch processes each packet.  The output is
    detailed and can help pinpoint logic errors in your implementation.
    The `build/<switch-name>-<interface-name>.pcap` also contains the
