@@ -102,11 +102,13 @@ control MyIngress(inout headers hdr,
         mark_to_drop(standard_metadata);
     }
     
-    //ecmp_count为等价路由个数，由控制平面下发，本例中为2
     action set_ecmp_select(bit<16> ecmp_base, bit<32> ecmp_count) {
         /* TODO: hash on 5-tuple and save the hash result in meta.ecmp_select 
            so that the ecmp_nhop table can use it to make a forwarding decision accordingly */
         //根据五元组 源IP 目的IP IP协议 源TCP 目的TCP 计算哈希值，并赋值到meta.ecmp_select
+        //返回结果在[ecmp_base,ecmp_base+ecmp_count-1]之间
+        //特别地，当ecmp_count为0时，返回值恒为ecmp_base
+        //在本实验中，仅s1会将报文发送至s2、s3这两个不同的交换机，故s1-runtime中ecmp_count为2
         hash(meta.ecmp_select, HashAlgorithm.crc16, ecmp_base,
             {
                 hdr.ipv4.srcAddr,
