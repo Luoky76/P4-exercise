@@ -50,10 +50,27 @@ def writeIpv4Rules(p4info_helper, sw, dst_eth_addr, dst_ip_addr, ip_mask, port_i
         action_params = {
             "dstAddr": dst_eth_addr,
             "port": port_id
-        })
+        }
+    )
     sw.WriteTableEntry(table_entry)
     print("Installed rule on %s" % sw.name)
 
+def writeSwtraceRules(p4info_helper, sw, swid):
+    """
+    :param p4info_helper: the P4Info helper
+    :param sw: the witch connection
+    :param swid: the index of sw
+    """
+    table_entry = p4info_helper.buildTableEntry(
+        table_name = "MyEgress.swtrace",
+        default_action = True,
+        action_name = "MyEgress.add_swtrace",
+        action_params = {
+            "swid": swid
+        }
+    )
+    sw.WriteTableEntry(table_entry)
+    print("Assign the index:",swid,"to",sw.name)
 
 def readTableRules(p4info_helper, sw):
     """
@@ -161,6 +178,7 @@ def main(p4info_file_path, bmv2_file_path):
                          dst_ip_addr="10.0.2.0", ip_mask=24, port_id=S1_TO_S2)
         writeIpv4Rules(p4info_helper, sw=s1, dst_eth_addr="08:00:00:00:03:00",
                          dst_ip_addr="10.0.3.0", ip_mask=24, port_id=S1_TO_S3)
+        writeSwtraceRules(p4info_helper, sw=s1, swid=1)
         #s2
         print("install rules on s2...")
         writeIpv4Rules(p4info_helper, sw=s2, dst_eth_addr="08:00:00:00:02:02",
@@ -171,6 +189,7 @@ def main(p4info_file_path, bmv2_file_path):
                          dst_ip_addr="10.0.1.0", ip_mask=24, port_id=S2_TO_S1)
         writeIpv4Rules(p4info_helper, sw=s2, dst_eth_addr="08:00:00:00:03:00",
                          dst_ip_addr="10.0.3.0", ip_mask=24, port_id=S2_TO_S3)
+        writeSwtraceRules(p4info_helper, sw=s2, swid=2)
         #s3
         print("install rules on s3...")
         writeIpv4Rules(p4info_helper, sw=s3, dst_eth_addr="08:00:00:00:03:03",
@@ -179,6 +198,7 @@ def main(p4info_file_path, bmv2_file_path):
                          dst_ip_addr="10.0.1.0", ip_mask=24, port_id=S3_TO_S1)
         writeIpv4Rules(p4info_helper, sw=s3, dst_eth_addr="08:00:00:00:02:00",
                          dst_ip_addr="10.0.2.0", ip_mask=24, port_id=S3_TO_S2)
+        writeSwtraceRules(p4info_helper, sw=s3, swid=3)
 
         readTableRules(p4info_helper, s1)
         readTableRules(p4info_helper, s2)

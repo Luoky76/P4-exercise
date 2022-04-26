@@ -3,14 +3,14 @@
 ## Introduction
 
 The objective of this tutorial is to implement a basic calculator
-using a custom(定做的) protocol header written in P4. The header will contain
-an operation to perform and two operands(操作对象). When a switch receives a
+using a custom protocol header written in P4. The header will contain
+an operation to perform and two operands. When a switch receives a
 calculator packet header, it will execute the operation on the
 operands, and return the result to the sender.
 
 ## Step 1: Run the (incomplete) starter code
 
-The directory with this README also contains a skeleton(基本的) P4 program,
+The directory with this README also contains a skeleton P4 program,
 `calc.p4`, which initially drops all packets.  Your job will be to
 extend it to properly implement the calculator logic.
 
@@ -23,7 +23,7 @@ switch in Mininet to test its behavior.
    ```
    This will:
    * compile `calc.p4`, and
-
+  
    * start a Mininet instance with one switches (`s1`) connected to
      two hosts (`h1`, `h2`).
    * The hosts are assigned IPs of `10.0.1.1` and `10.0.1.2`.
@@ -33,11 +33,11 @@ you to test your calculator. You can run the driver program directly
 from the Mininet command prompt:
 
 ```
-mininet> h1 python calc.py
->
+mininet> h1 python calc.py 
+> 
 ```
 
-3. The driver(驱动) program will provide a new prompt, at which you can type
+3. The driver program will provide a new prompt, at which you can type
 basic expressions. The test harness will parse your expression, and
 prepare a packet with the corresponding operator and operands. It will
 then send a packet to the switch for evaluation. When the switch
@@ -58,7 +58,7 @@ calculator header, and implement the switch logic to parse header,
 perform the requested operation, write the result in the header, and
 return the packet to the sender.
 
-We will use the following ==header format==:
+We will use the following header format:
 
              0                1                  2              3
       +----------------+----------------+----------------+---------------+
@@ -70,7 +70,7 @@ We will use the following ==header format==:
       +----------------+----------------+----------------+---------------+
       |                              Result                              |
       +----------------+----------------+----------------+---------------+
-
+ 
 
 -  P is an ASCII Letter 'P' (0x50)
 -  4 is an ASCII Letter '4' (0x34)
@@ -81,9 +81,10 @@ We will use the following ==header format==:
  -   '&' (0x26) Result = OperandA & OperandB
  -   '|' (0x7c) Result = OperandA | OperandB
  -   '^' (0x5e) Result = OperandA ^ OperandB
+ 
 
 We will assume that the calculator header is carried over Ethernet,
-and we will use the Ethernet type ==0x1234== to indicate the presence of
+and we will use the Ethernet type 0x1234 to indicate the presence of
 the header.
 
 Given what you have learned so far, your task is to implement the P4

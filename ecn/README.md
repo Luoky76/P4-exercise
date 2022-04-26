@@ -3,12 +3,12 @@
 ## Introduction
 
 The objective of this tutorial is to extend basic L3 forwarding with
-an implementation of Explicit Congestion Notification (ECN 显式拥塞通知).
+an implementation of Explicit Congestion Notification (ECN).
 
 ECN allows end-to-end notification of network congestion without
 dropping packets.  If an end-host supports ECN, it puts the value of 1
 or 2 in the `ipv4.ecn` field.  For such packets, each switch may
-change the value to 3 if the queue size is larger than a threshold(阈).
+change the value to 3 if the queue size is larger than a threshold.
 The receiver copies the value to sender, and the sender can lower the
 rate.
 
@@ -21,7 +21,7 @@ program.
 
 ## Step 1: Run the (incomplete) starter code
 
-The directory with this README also contains a skeleton(基本的) P4 program,
+The directory with this README also contains a skeleton P4 program,
 `ecn.p4`, which initially implements L3 forwarding. Your job (in the
 next step) will be to extend it to properly append set the ECN bits
 
@@ -44,15 +44,14 @@ network in Mininet to test its behavior.
 
 2. We want to send a low rate traffic from `h1` to `h2` and a high
 rate iperf traffic from `h11` to `h22`.  The link between `s1` and
-`s2` is common between the flows and is a bottleneck(瓶颈) because we
+`s2` is common between the flows and is a bottleneck because we
 reduced its bandwidth to 512kbps in topology.json.  Therefore, if we
 capture packets at `h2`, we should see the right ECN value.
 
 ![Setup](setup.png)
 
-3. You should now see a Mininet command prompt(准备接收指令的提示). Open four terminals
-   for `h1`, `h11`, `h2`, `h22`, respectively:
-   
+3. You should now see a Mininet command prompt. Open four terminals
+for `h1`, `h11`, `h2`, `h22`, respectively:
    ```bash
    mininet> xterm h1 h11 h2 h22
    ```
@@ -60,22 +59,17 @@ capture packets at `h2`, we should see the right ECN value.
    ```bash
    ./receive.py
    ```
-   或者用以下命令将输出写进`h2.log`
-   ```bash
-   ./receive.py > h2.log
-   ```
-4. in `h22`'s XTerm, start the iperf UDP server:(启动 iperf 的 UDP 服务器 -s表server -u表使用udp协议)
+4. in `h22`'s XTerm, start the iperf UDP server:
    ```bash
    iperf -s -u
    ```
 5. In `h1`'s XTerm, send one packet per second to `h2` using send.py
-   say for 30 seconds:(h1 向 h2 以每秒一包的速率发包 30 秒)
-   
+say for 30 seconds:
    ```bash
    ./send.py 10.0.2.2 "P4 is cool" 30
    ```
    The message "P4 is cool" should be received in `h2`'s xterm,
-6. In `h11`'s XTerm, start iperf client sending for 15 seconds(-c 后为服务器端地址 -t 后为持续时间 15s)
+6. In `h11`'s XTerm, start iperf client sending for 15 seconds
    ```bash
    iperf -c 10.0.2.22 -t 15 -u
    ```
@@ -87,13 +81,13 @@ for setting the ECN flag.
 
 ## Step 2: Implement ECN
 
-The `ecn.p4` file contains a skeleton(基干的) P4 program with key pieces of
+The `ecn.p4` file contains a skeleton P4 program with key pieces of
 logic replaced by `TODO` comments.  These should guide your
 implementation---replace each `TODO` with logic implementing the
 missing piece.
 
-First we have to change the ipv4_t header by splitting(拆分) the ==TOS field==(服务类型字段)
-into ==DiffServ== and ==ECN== fields.  Remember to update the ==checksum block==
+First we have to change the ipv4_t header by splitting the TOS field
+into DiffServ and ECN fields.  Remember to update the checksum block
 accordingly.  Then, in the egress control block we must compare the
 queue length with ECN_THRESHOLD. If the queue length is larger than
 the threshold, the ECN flag will be set.  Note that this logic should
@@ -109,25 +103,24 @@ A complete `ecn.p4` will contain the following components:
 	1. Set the egress port for the next hop.
 	2. Update the ethernet destination address with the address of
            the next hop.
-	3. Update the ethernet source address with the address of the switch.
+	3. Update the ethernet source address with the address of the switch. 
 	4. Decrement the TTL.
 5. An egress control block that checks the ECN and
 `standard_metadata.enq_qdepth` and sets the ipv4.ecn.
 6. A deparser that selects the order in which fields inserted into the outgoing
    packet.
 7. A `package` instantiation supplied with the parser, control,
-    checksum verification and recomputation and deparser.
+  checksum verification and recomputation and deparser.
 
 ## Step 3: Run your solution
 
 Follow the instructions from Step 1. This time, when your message from
 `h1` is delivered to `h2`, you should see `tos` values change from 1
 to 3 as the queue builds up.  `tos` may change back to 1 when iperf
-finishes and the queue depletes(耗尽).
+finishes and the queue depletes.
 
-**To easily track the `tos` values you may want to redirect the output
-of `h2` to a file by running the following for `h2`**
-
+To easily track the `tos` values you may want to redirect the output
+of `h2` to a file by running the following for `h2`
    ```bash
    ./receive.py > h2.log
    ```
@@ -162,7 +155,7 @@ and just print the `tos` values `grep tos h2.log` in a separate window
 
 ### Food for thought
 
-How can we let the user configure(配置) the threshold?
+How can we let the user configure the threshold?
 
 ### Troubleshooting
 
@@ -172,12 +165,12 @@ There are several ways that problems might manifest:
    error emitted from the compiler and stop.
 2. `ecn.p4` compiles but does not support the control plane rules in
    the `sX-runtime.json` files that `make` tries to install using
-   a Python controller. In this case, `make` will log the controller output
+   a Python controller. In this case, `make` will log the controller output 
    in the `logs` directory. Use these error messages to fix your `ecn.p4`
    implementation.
 3. `ecn.p4` compiles, and the control plane rules are installed, but
    the switch does not process packets in the desired way.  The
-   `logs/sX.log` files contain trace messages
+   `/tmp/p4s.<switch-name>.log` files contain trace messages
    describing how each switch processes each packet.  The output is
    detailed and can help pinpoint logic errors in your implementation.
    The `build/<switch-name>-<interface-name>.pcap` also contains the
