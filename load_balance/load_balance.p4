@@ -145,7 +145,8 @@ control MyIngress(inout headers hdr,
             drop;
             set_nhop;
         }
-        size = 2;
+        //根据需要调整流表大小
+        size = 3;
     }
     apply {
         /* TODO: apply ecmp_group table and ecmp_nhop table if IPv4 header is
@@ -170,12 +171,14 @@ control MyEgress(inout headers hdr,
                  inout standard_metadata_t standard_metadata) {
 
     action rewrite_mac(bit<48> smac) {
+        //修改源mac地址
         hdr.ethernet.srcAddr = smac;
     }
     action drop() {
         mark_to_drop(standard_metadata);
     }
     table send_frame {
+        //该流表通过匹配standard_metadata.egress_port来获取该端口的mac地址
         key = {
             standard_metadata.egress_port: exact;
         }
