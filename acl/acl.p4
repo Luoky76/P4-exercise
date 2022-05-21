@@ -179,7 +179,6 @@ control MyIngress(inout headers hdr,
         if (hdr.ipv4.isValid()) {
             ipv4_lpm.apply();
             /* TODO: add your table to the control flow */
-            if (hdr.udp.isValid())
             acl_ternary.apply();
         }
 
