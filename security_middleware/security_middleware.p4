@@ -7,6 +7,7 @@ const bit<16> TYPE_IPV6 = 0x86DD;
 const bit<16> TYPE_ARP = 0x0806;
 const bit<8> IP_TYPE_TCP = 6;
 const bit<8> IP_TYPE_UDP = 17;
+#define MAX_HOSTS 4096
 
 /*************************************************************************
 *********************** H E A D E R S  ***********************************
@@ -172,6 +173,13 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
+                  
+    //声明寄存器用于记录各个主机发送的包数和字节数
+    register<bit<32>>(MAX_HOSTS) packet_cnt_reg;
+    register<bit<32>>(MAX_HOSTS) byte_cnt_reg;
+    //声明变量用于存储当前报文的源主机对应的寄存器位置
+    bit<32> reg_pos; bit<32> reg_val;
+
     action drop() {
         //将要丢弃的包标记为丢弃
         mark_to_drop(standard_metadata);
@@ -201,6 +209,17 @@ control MyIngress(inout headers hdr,
         size = 1024;	//流表项容量
         default_action = drop();	//table miss 则丢弃
     }
+    
+    //更新寄存器的值
+    action update_register() {
+        //包数+1
+        packet_cnt_reg.read(reg_val, reg_pos);
+        packet_cnt_reg.write(reg_pos, reg_val + 1);
+        
+        //从标准元数据中读取包长并更新主机发送的字节数
+        byte_cnt_reg.read(reg_val, reg_pos);
+        byte_cnt_reg.write(reg_pos, reg_val + standard_metadata.packet_length);
+    }
 
     action ipv6_forward(macAddr_t dstAddr, egressSpec_t port) {
         standard_metadata.egress_spec = port;
@@ -222,16 +241,38 @@ control MyIngress(inout headers hdr,
         size = 1024;//流表项容量
         default_action = drop();//table miss 则丢弃
     }
+    
+    //通过哈希源ip地址和源mac地址来得到主机的一个标识号
+    action compute_ipv4_hashes(ip4Addr_t ipAddr, macAddr_t macAddr) {
+       //利用哈希函数crc32得到寄存器位置
+       //返回值在[0,4095]之间
+       hash(reg_pos, HashAlgorithm.crc32, (bit<32>)0, {ipAddr,
+                                                       macAddr},
+                                                       (bit<32>)MAX_HOSTS);
+       //FIXME 当哈希值发生冲突时将会出错
+    }
+    
+    action compute_ipv6_hashes(ip6Addr_t ipAddr, macAddr_t macAddr) {
+       //利用哈希函数crc32得到寄存器位置
+       //返回值在[0,4095]之间
+       hash(reg_pos, HashAlgorithm.crc32, (bit<32>)0, {ipAddr,
+                                                       macAddr},
+                                                       (bit<32>)MAX_HOSTS);
+    }
 
     apply {
         //如果 ipv4 有效，则执行 ipv4 的匹配 table
         if (hdr.ipv4.isValid())
         {
+            compute_ipv4_hashes(hdr.ipv4.srcAddr, hdr.ethernet.srcAddr);
+            update_register();
             ipv4_lpm.apply();
         }
         //如果 ipv6 有效，则执行 ipv6 的匹配 table
         if (hdr.ipv6.isValid())
         {
+            compute_ipv6_hashes(hdr.ipv6.srcAddr, hdr.ethernet.srcAddr);
+            update_register();
             ipv6_lpm.apply();
         }
     }
