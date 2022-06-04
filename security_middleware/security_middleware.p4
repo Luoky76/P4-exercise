@@ -177,6 +177,12 @@ control MyIngress(inout headers hdr,
     //声明寄存器用于记录各个主机发送的包数和字节数
     register<bit<32>>(MAX_HOSTS) packet_cnt_reg;
     register<bit<32>>(MAX_HOSTS) byte_cnt_reg;
+    //只允许在白名单并且不在黑名单的包通过
+    //声明寄存器用于记录黑名单，每一位代表一台主机，1为禁止，0为允许
+    register<bit<1>>(MAX_HOSTS) ban_list_reg;
+    //声明便利存储黑名单寄存器对应位置的值
+    bit<1> ban;
+    
     //声明变量用于存储当前报文的源主机对应的寄存器位置
     bit<32> reg_pos; bit<32> reg_val;
 
@@ -259,6 +265,10 @@ control MyIngress(inout headers hdr,
                                                        macAddr},
                                                        (bit<32>)MAX_HOSTS);
     }
+    
+    action check_ban_list() {
+        ban_list_reg.read(ban, reg_pos);
+    }
 
     apply {
         //如果 ipv4 有效，则执行 ipv4 的匹配 table
@@ -266,6 +276,7 @@ control MyIngress(inout headers hdr,
         {
             compute_ipv4_hashes(hdr.ipv4.srcAddr, hdr.ethernet.srcAddr);
             update_register();
+            check_ban_list();
             ipv4_lpm.apply();
         }
         //如果 ipv6 有效，则执行 ipv6 的匹配 table
@@ -273,6 +284,8 @@ control MyIngress(inout headers hdr,
         {
             compute_ipv6_hashes(hdr.ipv6.srcAddr, hdr.ethernet.srcAddr);
             update_register();
+            check_ban_list();
+            if (ban == 1) drop();
             ipv6_lpm.apply();
         }
     }
