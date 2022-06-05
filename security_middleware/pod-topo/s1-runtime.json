@@ -53,6 +53,7 @@
         "port": 4
       }
     },
+
     {
       "table": "MyIngress.ipv4_white_exact",
       "default_action": true,
@@ -64,15 +65,47 @@
       "match": {
         "hdr.ipv4.srcAddr": ["10.0.2.2", 32]
       },
-      "action_name": "MyIngress.set_white",
+      "action_name": "MyIngress.set_ip_white",
       "action_params": { }
     },
     {
       "table": "MyIngress.ipv4_white_exact",
       "match": {
-        "hdr.ipv4.dstAddr": ["10.0.4.4", 32]
+        "hdr.ipv4.srcAddr": ["10.0.4.4", 32]
       },
-      "action_name": "MyIngress.set_white",
+      "action_name": "MyIngress.set_ip_white",
+      "action_params": { }
+    },
+    {
+      "table": "MyIngress.ipv4_white_exact",
+      "match": {
+        "hdr.ethernet.srcAddr": ["00:00:00:00:03:01"]
+      },
+      "action_name": "MyIngress.set_mac_white",
+      "action_params": { }
+    },
+    {
+      "table": "MyIngress.ipv4_white_exact",
+      "match": {
+        "hdr.ethernet.srcAddr": ["00:00:00:00:04:02"]
+      },
+      "action_name": "MyIngress.set_mac_white",
+      "action_params": { }
+    },
+    {
+      "table": "MyIngress.ipv4_white_exact",
+      "match": {
+        "hdr.ethernet.srcAddr": ["00:00:00:00:01:11"]
+      },
+      "action_name": "MyIngress.set_mac_white",
+      "action_params": { }
+    },
+    {
+      "table": "MyIngress.ipv4_white_exact",
+      "match": {
+        "hdr.ethernet.srcAddr": ["00:00:00:00:02:22"]
+      },
+      "action_name": "MyIngress.set_mac_white",
       "action_params": { }
     }
   ]

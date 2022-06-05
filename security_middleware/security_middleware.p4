@@ -84,7 +84,8 @@ header udp_t {
 
 //元数据 用于携带数据和配置信息
 struct metadata {
-    bit<1> in_white;
+    bit<1> in_ip_white;
+    bit<1> in_mac_white;
     bit<1> in_black;
 }
 
@@ -251,10 +252,12 @@ control MyIngress(inout headers hdr,
     table ipv4_white_exact{
         key = {
             hdr.ipv4.srcAddr: exact;
+            hdr.ethernet.srcAddr: exact;
         }
         
         action={
-            set_white;
+            set_ip_white;
+            set_mac_white;
             drop;
             NoAction;
         }
@@ -262,8 +265,12 @@ control MyIngress(inout headers hdr,
         default_action = drop();
     }
 
-    action set_white(){
-        metadata.in_white=1;
+    action set_ip_white(){
+        metadata.in_ip_white=1;
+    }
+
+    action set_mac_white(){
+        metadata.in_mac_white=1;
     }
 
     //更新寄存器的值
