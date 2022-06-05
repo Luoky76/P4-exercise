@@ -7,6 +7,8 @@ const bit<16> TYPE_IPV6 = 0x86DD;
 const bit<16> TYPE_ARP = 0x0806;
 const bit<8> IP_TYPE_TCP = 0x06;
 const bit<8> IP_TYPE_UDP = 0x11;
+
+#define MIN_GAP_TIME 3600000000
 #define MAX_HOSTS 4096
 #define MAX_PACKET_CNT 1048576
 #define MAX_PACKET_BYTE 1048576
@@ -331,7 +333,7 @@ control MyIngress(inout headers hdr,
             compute_ipv4_hashes(hdr.ipv4.srcAddr, hdr.ethernet.srcAddr);
             update_register();
 
-            if(ingress_global_timestamp - reg_last_time_val < 3600000000){
+            if(ingress_global_timestamp - reg_last_time_val < MIN_GAP_TIME){
                 if(reg_byte_cnt_val>=MAX_PACKET_BYTE || reg_packet_cnt_val>=MAX_PACKET_CNT){
                     set_black();
                 }
@@ -350,7 +352,7 @@ control MyIngress(inout headers hdr,
             compute_ipv6_hashes(hdr.ipv6.srcAddr, hdr.ethernet.srcAddr);
             update_register();
 
-            if(ingress_global_timestamp - reg_last_time_val < 3600000000){
+            if(ingress_global_timestamp - reg_last_time_val < MIN_GAP_TIME){
                 if(reg_byte_cnt_val>=MAX_PACKET_BYTE || reg_packet_cnt_val?=MAX_PACKET_CNT){
                     set_black();
                 }
