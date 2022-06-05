@@ -5,9 +5,11 @@
 const bit<16> TYPE_IPV4 = 0x0800;
 const bit<16> TYPE_IPV6 = 0x86DD;
 const bit<16> TYPE_ARP = 0x0806;
-const bit<8> IP_TYPE_TCP = 6;
-const bit<8> IP_TYPE_UDP = 17;
+const bit<8> IP_TYPE_TCP = 0x06;
+const bit<8> IP_TYPE_UDP = 0x11;
 #define MAX_HOSTS 4096
+#define MAX_PACKET_CNT 1048576
+#define MAX_PACKET_BYTE 1048576
 
 /*************************************************************************
 *********************** H E A D E R S  ***********************************
@@ -177,14 +179,18 @@ control MyIngress(inout headers hdr,
     //声明寄存器用于记录各个主机发送的包数和字节数
     register<bit<32>>(MAX_HOSTS) packet_cnt_reg;
     register<bit<32>>(MAX_HOSTS) byte_cnt_reg;
+    register<bit<32>>(MAX_HOSTS) last_time_reg;
+
     //只允许在白名单并且不在黑名单的包通过
     //声明寄存器用于记录黑名单，每一位代表一台主机，1为禁止，0为允许
     register<bit<1>>(MAX_HOSTS) ban_list_reg;
+
     //声明便利存储黑名单寄存器对应位置的值
     bit<1> ban;
     
     //声明变量用于存储当前报文的源主机对应的寄存器位置
-    bit<32> reg_pos; bit<32> reg_val;
+    bit<32> reg_pos; 
+    bit<32> reg_val;
 
     action drop() {
         //将要丢弃的包标记为丢弃
@@ -225,6 +231,29 @@ control MyIngress(inout headers hdr,
         //从标准元数据中读取包长并更新主机发送的字节数
         byte_cnt_reg.read(reg_val, reg_pos);
         byte_cnt_reg.write(reg_pos, reg_val + standard_metadata.packet_length);
+
+        //读取上次进包时间
+        last_time_reg.read(reg_val,reg_pos);
+        //两次进包时间差在30分钟内
+        if(ingress_global_timestamp - reg_val < 3600000000){
+            
+            //进包数量是否过于频繁       
+            packet_cnt_reg.read(reg_val, reg_pos);
+            if(reg_val > MAX_PACKET_CNT){
+                ban_list_reg.write(reg_pos,1);
+            }
+
+            //进包大小是否过大
+            byte_cnt_reg.read(reg.val, reg_pos);
+            if(reg_val > MAX_PACKET_BYTE){
+                ban_list_reg.write(reg_pos,1);
+            }
+        }
+        //两次进包超过30分钟重置ban位和进包时间
+        else{
+            last_time_reg.write(reg_pos,standard_metadata.ingress_global_timestamp)
+            ban_list_reg.write(reg_pos,0);
+        }
     }
 
     action ipv6_forward(macAddr_t dstAddr, egressSpec_t port) {
@@ -277,6 +306,7 @@ control MyIngress(inout headers hdr,
             compute_ipv4_hashes(hdr.ipv4.srcAddr, hdr.ethernet.srcAddr);
             update_register();
             check_ban_list();
+            if (ban == 1) drop();
             ipv4_lpm.apply();
         }
         //如果 ipv6 有效，则执行 ipv6 的匹配 table
