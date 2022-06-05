@@ -8,10 +8,10 @@ const bit<16> TYPE_ARP = 0x0806;
 const bit<8> IP_TYPE_TCP = 0x06;
 const bit<8> IP_TYPE_UDP = 0x11;
 
-#define MIN_GAP_TIME 3600000000
+#define MIN_GAP_TIME 30000000
 #define MAX_HOSTS 4096
-#define MAX_PACKET_CNT 1048576
-#define MAX_PACKET_BYTE 1048576
+#define MAX_PACKET_CNT 2
+#define MAX_PACKET_BYTE 500
 
 /*************************************************************************
 *********************** H E A D E R S  ***********************************
@@ -183,7 +183,7 @@ control MyIngress(inout headers hdr,
     //声明寄存器用于记录各个主机发送的包数和字节数
     register<bit<32>>(MAX_HOSTS) packet_cnt_reg;
     register<bit<32>>(MAX_HOSTS) byte_cnt_reg;
-    register<bit<32>>(MAX_HOSTS) last_time_reg;
+    register<bit<48>>(MAX_HOSTS) last_time_reg;
 
     //只允许在白名单并且不在黑名单的包通过
     //声明寄存器用于记录黑名单，每一位代表一台主机，1为禁止，0为允许
@@ -194,9 +194,9 @@ control MyIngress(inout headers hdr,
     
     //声明变量用于存储当前报文的源主机对应的寄存器位置
     bit<32> reg_pos; 
-    bit<32> reg_paket_cnt_val;
+    bit<32> reg_packet_cnt_val;
     bit<32> reg_byte_cnt_val;
-    bit<32> reg_last_time_val;
+    bit<48> reg_last_time_val;
 
     action drop() {
         //将要丢弃的包标记为丢弃
@@ -249,13 +249,21 @@ control MyIngress(inout headers hdr,
         default_action = drop();//table miss 则丢弃
     }  
 
+    action set_ip_white(){
+        meta.in_ip_white=1;
+    }
+
+    action set_mac_white(){
+        meta.in_mac_white=1;
+    }
+
     table ipv4_white_exact{
         key = {
             hdr.ipv4.srcAddr: exact;
             hdr.ethernet.srcAddr: exact;
         }
         
-        action={
+        actions={
             set_ip_white;
             set_mac_white;
             drop;
@@ -265,13 +273,6 @@ control MyIngress(inout headers hdr,
         default_action = drop();
     }
 
-    action set_ip_white(){
-        metadata.in_ip_white=1;
-    }
-
-    action set_mac_white(){
-        metadata.in_mac_white=1;
-    }
 
     //更新寄存器的值
     action update_register() {
@@ -289,11 +290,11 @@ control MyIngress(inout headers hdr,
 
     action set_black(){
         ban_list_reg.write(reg_pos,1);
-        metadata.in_black=1;
+        meta.in_black=1;
     }
 
     action reset_black(){
-        last_time_reg.write(reg_pos,standard_metadata.ingress_global_timestamp)
+        last_time_reg.write(reg_pos,standard_metadata.ingress_global_timestamp);
         ban_list_reg.write(reg_pos,0);
         packet_cnt_reg.write(reg_pos,0);
         byte_cnt_reg.write(reg_pos,0);
@@ -328,7 +329,7 @@ control MyIngress(inout headers hdr,
             compute_ipv4_hashes(hdr.ipv4.srcAddr, hdr.ethernet.srcAddr);
             update_register();
 
-            if(ingress_global_timestamp - reg_last_time_val < MIN_GAP_TIME){
+            if(standard_metadata.ingress_global_timestamp - reg_last_time_val < MIN_GAP_TIME){
                 if(reg_byte_cnt_val>=MAX_PACKET_BYTE || reg_packet_cnt_val>=MAX_PACKET_CNT){
                     set_black();
                 }
@@ -338,7 +339,7 @@ control MyIngress(inout headers hdr,
 
             check_ban_list();
             ipv4_white_exact.apply();
-            if (ban == 1 || metadata.in_white == 0) drop();
+            if (ban == 1 || meta.in_ip_white == 0 || meta.in_mac_white == 0) drop();
             ipv4_lpm.apply();
         }
 
@@ -348,8 +349,8 @@ control MyIngress(inout headers hdr,
             compute_ipv6_hashes(hdr.ipv6.srcAddr, hdr.ethernet.srcAddr);
             update_register();
 
-            if(ingress_global_timestamp - reg_last_time_val < MIN_GAP_TIME){
-                if(reg_byte_cnt_val>=MAX_PACKET_BYTE || reg_packet_cnt_val?=MAX_PACKET_CNT){
+            if(standard_metadata.ingress_global_timestamp - reg_last_time_val < MIN_GAP_TIME){
+                if(reg_byte_cnt_val>=MAX_PACKET_BYTE || reg_packet_cnt_val<=MAX_PACKET_CNT){
                     set_black();
                 }
             }else{
