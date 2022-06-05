@@ -82,7 +82,7 @@ header udp_t {
 
 //元数据 用于携带数据和配置信息
 struct metadata {
-    bit<1> in_wite;
+    bit<1> in_white;
     bit<1> in_black;
 }
 
@@ -224,36 +224,6 @@ control MyIngress(inout headers hdr,
         size = 1024;	//流表项容量
         default_action = drop();	//table miss 则丢弃
     }
-    
-    //更新寄存器的值
-    action update_register() {
-        //包数+1
-        packet_cnt_reg.read(reg_packet_cnt_val, reg_pos);
-        packet_cnt_reg.write(reg_pos, reg_packet_cnt_val + 1);
-        
-        //从标准元数据中读取包长并更新主机发送的字节数
-        byte_cnt_reg.read(reg_byte_cnt_val, reg_pos);
-        byte_cnt_reg.write(reg_pos, reg_byte_cnt_val + standard_metadata.packet_length);
-
-        //读取上次进包时间
-        last_time_reg.read(reg_last_time_val,reg_pos);
-    }
-
-    action set_black{
-        ban_list_reg.write(reg_pos,1);
-    }
-
-    action reset_black{
-        last_time_reg.write(reg_pos,standard_metadata.ingress_global_timestamp)
-        ban_list_reg.write(reg_pos,0);
-        packet_cnt_reg.write(reg_pos,0);
-        byte_cnt_reg.write(reg_pos,0);
-    }
-
-
-
-
-
 
     action ipv6_forward(macAddr_t dstAddr, egressSpec_t port) {
         standard_metadata.egress_spec = port;
@@ -274,7 +244,62 @@ control MyIngress(inout headers hdr,
         }
         size = 1024;//流表项容量
         default_action = drop();//table miss 则丢弃
+    }  
+
+    table ipv4_white_exact{
+        key = {
+            hdr.ipv4.dstAddr: exact;
+        }
+        
+        action={
+            set_white;
+            drop;
+            NoAction;
+        }
+        size = 1024;
+        default_action = drop();
     }
+
+
+    action set_white(){
+        metadata.in_white=1;
+    }
+
+
+
+
+
+    //更新寄存器的值
+    action update_register() {
+        //包数+1
+        packet_cnt_reg.read(reg_packet_cnt_val, reg_pos);
+        packet_cnt_reg.write(reg_pos, reg_packet_cnt_val + 1);
+        
+        //从标准元数据中读取包长并更新主机发送的字节数
+        byte_cnt_reg.read(reg_byte_cnt_val, reg_pos);
+        byte_cnt_reg.write(reg_pos, reg_byte_cnt_val + standard_metadata.packet_length);
+
+        //读取上次进包时间
+        last_time_reg.read(reg_last_time_val,reg_pos);
+    }
+
+    action set_black(){
+        ban_list_reg.write(reg_pos,1);
+        metadata.in_black=1;
+    }
+
+    action reset_black(){
+        last_time_reg.write(reg_pos,standard_metadata.ingress_global_timestamp)
+        ban_list_reg.write(reg_pos,0);
+        packet_cnt_reg.write(reg_pos,0);
+        byte_cnt_reg.write(reg_pos,0);
+    }
+
+
+
+
+
+
     
     //通过哈希源ip地址和源mac地址来得到主机的一个标识号
     action compute_ipv4_hashes(ip4Addr_t ipAddr, macAddr_t macAddr) {
@@ -313,11 +338,12 @@ control MyIngress(inout headers hdr,
             }else{
                 reset_black();
             }
-
             check_ban_list();
-            if (ban == 1) drop();
+            ipv4_white_exact.apply();
+            if (ban == 1 || metadata.in_white == 0) drop();
             ipv4_lpm.apply();
         }
+
         //如果 ipv6 有效，则执行 ipv6 的匹配 table
         if (hdr.ipv6.isValid())
         {
