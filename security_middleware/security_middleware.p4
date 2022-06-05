@@ -250,7 +250,7 @@ control MyIngress(inout headers hdr,
 
     table ipv4_white_exact{
         key = {
-            hdr.ipv4.dstAddr: exact;
+            hdr.ipv4.srcAddr: exact;
         }
         
         action={
@@ -262,14 +262,9 @@ control MyIngress(inout headers hdr,
         default_action = drop();
     }
 
-
     action set_white(){
         metadata.in_white=1;
     }
-
-
-
-
 
     //更新寄存器的值
     action update_register() {
@@ -297,12 +292,6 @@ control MyIngress(inout headers hdr,
         byte_cnt_reg.write(reg_pos,0);
     }
 
-
-
-
-
-
-    
     //通过哈希源ip地址和源mac地址来得到主机的一个标识号
     action compute_ipv4_hashes(ip4Addr_t ipAddr, macAddr_t macAddr) {
        //利用哈希函数crc32得到寄存器位置
@@ -323,7 +312,6 @@ control MyIngress(inout headers hdr,
     
     action check_ban_list() {
         ban_list_reg.read(ban, reg_pos);
-
     }
 
     apply {
@@ -340,6 +328,7 @@ control MyIngress(inout headers hdr,
             }else{
                 reset_black();
             }
+
             check_ban_list();
             ipv4_white_exact.apply();
             if (ban == 1 || metadata.in_white == 0) drop();
