@@ -82,7 +82,8 @@ header udp_t {
 
 //元数据 用于携带数据和配置信息
 struct metadata {
-    /* empty */
+    bit<1> in_wite;
+    bit<1> in_black;
 }
 
 //包头部
@@ -190,7 +191,9 @@ control MyIngress(inout headers hdr,
     
     //声明变量用于存储当前报文的源主机对应的寄存器位置
     bit<32> reg_pos; 
-    bit<32> reg_val;
+    bit<32> reg_paket_cnt_val;
+    bit<32> reg_byte_cnt_val;
+    bit<32> reg_last_time_val;
 
     action drop() {
         //将要丢弃的包标记为丢弃
@@ -225,36 +228,32 @@ control MyIngress(inout headers hdr,
     //更新寄存器的值
     action update_register() {
         //包数+1
-        packet_cnt_reg.read(reg_val, reg_pos);
-        packet_cnt_reg.write(reg_pos, reg_val + 1);
+        packet_cnt_reg.read(reg_packet_cnt_val, reg_pos);
+        packet_cnt_reg.write(reg_pos, reg_packet_cnt_val + 1);
         
         //从标准元数据中读取包长并更新主机发送的字节数
-        byte_cnt_reg.read(reg_val, reg_pos);
-        byte_cnt_reg.write(reg_pos, reg_val + standard_metadata.packet_length);
+        byte_cnt_reg.read(reg_byte_cnt_val, reg_pos);
+        byte_cnt_reg.write(reg_pos, reg_byte_cnt_val + standard_metadata.packet_length);
 
         //读取上次进包时间
-        last_time_reg.read(reg_val,reg_pos);
-        //两次进包时间差在30分钟内
-        if(ingress_global_timestamp - reg_val < 3600000000){
-            
-            //进包数量是否过于频繁       
-            packet_cnt_reg.read(reg_val, reg_pos);
-            if(reg_val > MAX_PACKET_CNT){
-                ban_list_reg.write(reg_pos,1);
-            }
-
-            //进包大小是否过大
-            byte_cnt_reg.read(reg.val, reg_pos);
-            if(reg_val > MAX_PACKET_BYTE){
-                ban_list_reg.write(reg_pos,1);
-            }
-        }
-        //两次进包超过30分钟重置ban位和进包时间
-        else{
-            last_time_reg.write(reg_pos,standard_metadata.ingress_global_timestamp)
-            ban_list_reg.write(reg_pos,0);
-        }
+        last_time_reg.read(reg_last_time_val,reg_pos);
     }
+
+    action set_black{
+        ban_list_reg.write(reg_pos,1);
+    }
+
+    action reset_black{
+        last_time_reg.write(reg_pos,standard_metadata.ingress_global_timestamp)
+        ban_list_reg.write(reg_pos,0);
+        packet_cnt_reg.write(reg_pos,0);
+        byte_cnt_reg.write(reg_pos,0);
+    }
+
+
+
+
+
 
     action ipv6_forward(macAddr_t dstAddr, egressSpec_t port) {
         standard_metadata.egress_spec = port;
@@ -297,6 +296,7 @@ control MyIngress(inout headers hdr,
     
     action check_ban_list() {
         ban_list_reg.read(ban, reg_pos);
+
     }
 
     apply {
@@ -305,6 +305,15 @@ control MyIngress(inout headers hdr,
         {
             compute_ipv4_hashes(hdr.ipv4.srcAddr, hdr.ethernet.srcAddr);
             update_register();
+
+            if(ingress_global_timestamp - reg_last_time_val < 3600000000){
+                if(reg_byte_cnt_val>=MAX_PACKET_BYTE || reg_packet_cnt_val>=MAX_PACKET_CNT){
+                    set_black();
+                }
+            }else{
+                reset_black();
+            }
+
             check_ban_list();
             if (ban == 1) drop();
             ipv4_lpm.apply();
@@ -314,6 +323,15 @@ control MyIngress(inout headers hdr,
         {
             compute_ipv6_hashes(hdr.ipv6.srcAddr, hdr.ethernet.srcAddr);
             update_register();
+
+            if(ingress_global_timestamp - reg_last_time_val < 3600000000){
+                if(reg_byte_cnt_val>=MAX_PACKET_BYTE || reg_packet_cnt_val?=MAX_PACKET_CNT){
+                    set_black();
+                }
+            }else{
+                reset_black();
+            }
+
             check_ban_list();
             if (ban == 1) drop();
             ipv6_lpm.apply();
