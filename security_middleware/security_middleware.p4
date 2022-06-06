@@ -339,8 +339,11 @@ control MyIngress(inout headers hdr,
 
             check_ban_list();
             ipv4_white_exact.apply();
-            if (ban == 1 || meta.in_ip_white == 0 || meta.in_mac_white == 0) drop();
-            ipv4_lpm.apply();
+            if (ban == 1 || meta.in_ip_white == 0 || meta.in_mac_white == 0) {
+                drop();
+            }else{
+                ipv4_lpm.apply();
+            }
         }
 
         //如果 ipv6 有效，则执行 ipv6 的匹配 table
