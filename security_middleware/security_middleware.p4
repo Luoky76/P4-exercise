@@ -113,7 +113,7 @@ parser MyParser(packet_in packet,
     state start {
         transition parse_ethernet;
     }
-    
+
     //解析以太网帧
     state parse_ethernet {
         packet.extract(hdr.ethernet);	//提取包中的以太网帧头
@@ -124,7 +124,7 @@ parser MyParser(packet_in packet,
             default: accept;
         }
     }
-    
+
     //解析ipv4
     state parse_ipv4 {
         packet.extract(hdr.ipv4);	//继续提取ipv4头
@@ -134,7 +134,7 @@ parser MyParser(packet_in packet,
             default: accept;
         }
     }
-    
+
     //解析ipv6
     state parse_ipv6 {
         packet.extract(hdr.ipv6);	//继续提取ipv6头
@@ -144,13 +144,13 @@ parser MyParser(packet_in packet,
             default: accept;
         }
     }
-    
+
     //解析tcp
     state parse_tcp {
         packet.extract(hdr.tcp);
         transition accept;
     }
-    
+
     //解析udp
     state parse_udp {
         packet.extract(hdr.udp);
@@ -179,7 +179,7 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
-                  
+
     //声明寄存器用于记录各个主机发送的包数和字节数
     register<bit<32>>(MAX_HOSTS) packet_cnt_reg;
     register<bit<32>>(MAX_HOSTS) byte_cnt_reg;
@@ -191,9 +191,9 @@ control MyIngress(inout headers hdr,
 
     //声明便利存储黑名单寄存器对应位置的值
     bit<1> ban;
-    
+
     //声明变量用于存储当前报文的源主机对应的寄存器位置
-    bit<32> reg_pos; 
+    bit<32> reg_pos;
     bit<32> reg_packet_cnt_val;
     bit<32> reg_byte_cnt_val;
     bit<48> reg_last_time_val;
@@ -234,12 +234,12 @@ control MyIngress(inout headers hdr,
         hdr.ethernet.dstAddr = dstAddr;
         hdr.ipv6.hopLimit = hdr.ipv6.hopLimit-1;//这个类似ipv4中ttl，为0时就超时
     }
-      
+
     table ipv6_lpm {
         key = {
             hdr.ipv6.dstAddr: lpm;
         }
-          
+
         actions = {
             ipv6_forward;//转发
             drop;//丢弃
@@ -247,25 +247,25 @@ control MyIngress(inout headers hdr,
         }
         size = 1024;//流表项容量
         default_action = drop();//table miss 则丢弃
-    }  
+    }
 
     action set_ip_white(){
         meta.in_ip_white=1;
     }
 
-    action set_mac_white(){
-        meta.in_mac_white=1;
-    }
+    // action set_mac_white(){
+    //     meta.in_mac_white=1;
+    // }
 
     table ipv4_white_exact{
         key = {
             hdr.ipv4.srcAddr: ternary;
-            hdr.ethernet.srcAddr: ternary;
+            //hdr.ethernet.srcAddr: ternary;
         }
-        
+
         actions={
             set_ip_white;
-            set_mac_white;
+            //set_mac_white;
             drop;
             NoAction;
         }
@@ -279,7 +279,7 @@ control MyIngress(inout headers hdr,
         //包数+1
         packet_cnt_reg.read(reg_packet_cnt_val, reg_pos);
         packet_cnt_reg.write(reg_pos, reg_packet_cnt_val + 1);
-        
+
         //从标准元数据中读取包长并更新主机发送的字节数
         byte_cnt_reg.read(reg_byte_cnt_val, reg_pos);
         byte_cnt_reg.write(reg_pos, reg_byte_cnt_val + standard_metadata.packet_length);
@@ -309,7 +309,7 @@ control MyIngress(inout headers hdr,
                                                        (bit<32>)MAX_HOSTS);
        //FIXME 当哈希值发生冲突时将会出错
     }
-    
+
     action compute_ipv6_hashes(ip6Addr_t ipAddr, macAddr_t macAddr) {
        //利用哈希函数crc32得到寄存器位置
        //返回值在[0,4095]之间
@@ -317,7 +317,7 @@ control MyIngress(inout headers hdr,
                                                        macAddr},
                                                        (bit<32>)MAX_HOSTS);
     }
-    
+
     action check_ban_list() {
         ban_list_reg.read(ban, reg_pos);
     }
@@ -333,13 +333,16 @@ control MyIngress(inout headers hdr,
                 if(reg_byte_cnt_val>=MAX_PACKET_BYTE || reg_packet_cnt_val>=MAX_PACKET_CNT){
                     set_black();
                 }
-            }else{
+            }
+            else{
                 reset_black();
             }
 
             check_ban_list();
             ipv4_white_exact.apply();
-            if (ban == 1 || meta.in_ip_white == 0 || meta.in_mac_white == 0) {
+
+            //if (ban == 1 || meta.in_ip_white == 0 || meta.in_mac_white == 0) {
+            if (meta.in_black == 1 || meta.in_ip_white == 0) {
                 drop();
             }else{
                 ipv4_lpm.apply();
@@ -356,7 +359,8 @@ control MyIngress(inout headers hdr,
                 if(reg_byte_cnt_val>=MAX_PACKET_BYTE || reg_packet_cnt_val<=MAX_PACKET_CNT){
                     set_black();
                 }
-            }else{
+            }
+            else{
                 reset_black();
             }
 
