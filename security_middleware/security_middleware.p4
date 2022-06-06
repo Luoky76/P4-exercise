@@ -259,8 +259,8 @@ control MyIngress(inout headers hdr,
 
     table ipv4_white_exact{
         key = {
-            hdr.ipv4.srcAddr: exact;
-            hdr.ethernet.srcAddr: exact;
+            hdr.ipv4.srcAddr: ternary;
+            hdr.ethernet.srcAddr: ternary;
         }
         
         actions={
