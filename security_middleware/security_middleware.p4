@@ -5,9 +5,13 @@
 const bit<16> TYPE_IPV4 = 0x0800;
 const bit<16> TYPE_IPV6 = 0x86DD;
 const bit<16> TYPE_ARP = 0x0806;
-const bit<8> IP_TYPE_TCP = 6;
-const bit<8> IP_TYPE_UDP = 17;
+const bit<8> IP_TYPE_TCP = 0x06;
+const bit<8> IP_TYPE_UDP = 0x11;
+
+#define MIN_GAP_TIME 30000000
 #define MAX_HOSTS 4096
+#define MAX_PACKET_CNT 2
+#define MAX_PACKET_BYTE 500
 
 /*************************************************************************
 *********************** H E A D E R S  ***********************************
@@ -80,7 +84,9 @@ header udp_t {
 
 //元数据 用于携带数据和配置信息
 struct metadata {
-    /* empty */
+    bit<1> in_ip_white;
+    bit<1> in_mac_white;
+    bit<1> in_black;
 }
 
 //包头部
@@ -177,14 +183,20 @@ control MyIngress(inout headers hdr,
     //声明寄存器用于记录各个主机发送的包数和字节数
     register<bit<32>>(MAX_HOSTS) packet_cnt_reg;
     register<bit<32>>(MAX_HOSTS) byte_cnt_reg;
+    register<bit<48>>(MAX_HOSTS) last_time_reg;
+
     //只允许在白名单并且不在黑名单的包通过
     //声明寄存器用于记录黑名单，每一位代表一台主机，1为禁止，0为允许
     register<bit<1>>(MAX_HOSTS) ban_list_reg;
+
     //声明便利存储黑名单寄存器对应位置的值
     bit<1> ban;
     
     //声明变量用于存储当前报文的源主机对应的寄存器位置
-    bit<32> reg_pos; bit<32> reg_val;
+    bit<32> reg_pos; 
+    bit<32> reg_packet_cnt_val;
+    bit<32> reg_byte_cnt_val;
+    bit<48> reg_last_time_val;
 
     action drop() {
         //将要丢弃的包标记为丢弃
@@ -215,17 +227,6 @@ control MyIngress(inout headers hdr,
         size = 1024;	//流表项容量
         default_action = drop();	//table miss 则丢弃
     }
-    
-    //更新寄存器的值
-    action update_register() {
-        //包数+1
-        packet_cnt_reg.read(reg_val, reg_pos);
-        packet_cnt_reg.write(reg_pos, reg_val + 1);
-        
-        //从标准元数据中读取包长并更新主机发送的字节数
-        byte_cnt_reg.read(reg_val, reg_pos);
-        byte_cnt_reg.write(reg_pos, reg_val + standard_metadata.packet_length);
-    }
 
     action ipv6_forward(macAddr_t dstAddr, egressSpec_t port) {
         standard_metadata.egress_spec = port;
@@ -246,8 +247,59 @@ control MyIngress(inout headers hdr,
         }
         size = 1024;//流表项容量
         default_action = drop();//table miss 则丢弃
+    }  
+
+    action set_ip_white(){
+        meta.in_ip_white=1;
     }
-    
+
+    action set_mac_white(){
+        meta.in_mac_white=1;
+    }
+
+    table ipv4_white_exact{
+        key = {
+            hdr.ipv4.srcAddr: exact;
+            hdr.ethernet.srcAddr: exact;
+        }
+        
+        actions={
+            set_ip_white;
+            set_mac_white;
+            drop;
+            NoAction;
+        }
+        size = 1024;
+        default_action = drop();
+    }
+
+
+    //更新寄存器的值
+    action update_register() {
+        //包数+1
+        packet_cnt_reg.read(reg_packet_cnt_val, reg_pos);
+        packet_cnt_reg.write(reg_pos, reg_packet_cnt_val + 1);
+        
+        //从标准元数据中读取包长并更新主机发送的字节数
+        byte_cnt_reg.read(reg_byte_cnt_val, reg_pos);
+        byte_cnt_reg.write(reg_pos, reg_byte_cnt_val + standard_metadata.packet_length);
+
+        //读取上次进包时间
+        last_time_reg.read(reg_last_time_val,reg_pos);
+    }
+
+    action set_black(){
+        ban_list_reg.write(reg_pos,1);
+        meta.in_black=1;
+    }
+
+    action reset_black(){
+        last_time_reg.write(reg_pos,standard_metadata.ingress_global_timestamp);
+        ban_list_reg.write(reg_pos,0);
+        packet_cnt_reg.write(reg_pos,0);
+        byte_cnt_reg.write(reg_pos,0);
+    }
+
     //通过哈希源ip地址和源mac地址来得到主机的一个标识号
     action compute_ipv4_hashes(ip4Addr_t ipAddr, macAddr_t macAddr) {
        //利用哈希函数crc32得到寄存器位置
@@ -276,14 +328,35 @@ control MyIngress(inout headers hdr,
         {
             compute_ipv4_hashes(hdr.ipv4.srcAddr, hdr.ethernet.srcAddr);
             update_register();
+
+            if(standard_metadata.ingress_global_timestamp - reg_last_time_val < MIN_GAP_TIME){
+                if(reg_byte_cnt_val>=MAX_PACKET_BYTE || reg_packet_cnt_val>=MAX_PACKET_CNT){
+                    set_black();
+                }
+            }else{
+                reset_black();
+            }
+
             check_ban_list();
+            ipv4_white_exact.apply();
+            if (ban == 1 || meta.in_ip_white == 0 || meta.in_mac_white == 0) drop();
             ipv4_lpm.apply();
         }
+
         //如果 ipv6 有效，则执行 ipv6 的匹配 table
         if (hdr.ipv6.isValid())
         {
             compute_ipv6_hashes(hdr.ipv6.srcAddr, hdr.ethernet.srcAddr);
             update_register();
+
+            if(standard_metadata.ingress_global_timestamp - reg_last_time_val < MIN_GAP_TIME){
+                if(reg_byte_cnt_val>=MAX_PACKET_BYTE || reg_packet_cnt_val<=MAX_PACKET_CNT){
+                    set_black();
+                }
+            }else{
+                reset_black();
+            }
+
             check_ban_list();
             if (ban == 1) drop();
             ipv6_lpm.apply();
