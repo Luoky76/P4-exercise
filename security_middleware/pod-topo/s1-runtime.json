@@ -98,7 +98,7 @@
     {
       "table": "MyIngress.ipv4_white_exact",
       "match": {
-        "hdr.ethernet.srcAddr": ["00:00:00:00:01:11", 281474976710655]
+        "hdr.ethernet.srcAddr": ["08:00:00:00:01:11", 281474976710655]
       },
       "action_name": "MyIngress.set_mac_white",
       "action_params": { },
@@ -107,7 +107,7 @@
     {
       "table": "MyIngress.ipv4_white_exact",
       "match": {
-        "hdr.ethernet.srcAddr": ["00:00:00:00:02:22", 281474976710655]
+        "hdr.ethernet.srcAddr": ["08:00:00:00:02:22", 281474976710655]
       },
       "action_name": "MyIngress.set_mac_white",
       "action_params": { },
