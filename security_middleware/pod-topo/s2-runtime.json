@@ -76,42 +76,6 @@
       "action_name": "MyIngress.set_ip_white",
       "action_params": { },
       "priority": 1
-    },
-    {
-      "table": "MyIngress.ipv4_white_exact",
-      "match": {
-        "hdr.ethernet.srcAddr": ["08:00:00:00:03:33", 281474976710655]
-      },
-      "action_name": "MyIngress.set_mac_white",
-      "action_params": { },
-      "priority": 2
-    },
-    {
-      "table": "MyIngress.ipv4_white_exact",
-      "match": {
-        "hdr.ethernet.srcAddr": ["08:00:00:00:04:44", 281474976710655]
-      },
-      "action_name": "MyIngress.set_mac_white",
-      "action_params": { },
-      "priority": 2
-    },
-    {
-      "table": "MyIngress.ipv4_white_exact",
-      "match": {
-        "hdr.ethernet.srcAddr": ["00:00:00:00:04:01", 281474976710655]
-      },
-      "action_name": "MyIngress.set_mac_white",
-      "action_params": { },
-      "priority": 2
-    },
-    {
-      "table": "MyIngress.ipv4_white_exact",
-      "match": {
-        "hdr.ethernet.srcAddr": ["00:00:00:00:03:02", 281474976710655]
-      },
-      "action_name": "MyIngress.set_mac_white",
-      "action_params": { },
-      "priority": 2
     }
   ]
 }
